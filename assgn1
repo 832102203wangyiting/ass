@@ -1,0 +1,147 @@
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+public class CalculatorApp extends JFrame {
+    private JTextField textField;
+
+    public CalculatorApp() {
+        setTitle("Advanced Calculator");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(300, 400);
+        setLocationRelativeTo(null);
+
+        textField = new JTextField();
+        textField.setEditable(false);
+        textField.setHorizontalAlignment(JTextField.RIGHT);
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new GridLayout(5, 4, 10, 10));
+
+        String[] buttons = {
+                "7", "8", "9", "/",
+                "4", "5", "6", "*",
+                "1", "2", "3", "-",
+                "0", ".", "+", "=",
+                "sin", "cos", "tan", "^"
+        };
+
+        for (String button : buttons) {
+            JButton btn = new JButton(button);
+            btn.addActionListener(new ButtonClickListener());
+            buttonPanel.add(btn);
+        }
+
+        setLayout(new BorderLayout());
+        add(textField, BorderLayout.NORTH);
+        add(buttonPanel, BorderLayout.CENTER);
+    }
+
+    private class ButtonClickListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            JButton source = (JButton) e.getSource();
+            String buttonText = source.getText();
+
+            if (buttonText.equals("=")) {
+                calculate();
+            } else {
+                textField.setText(textField.getText() + buttonText);
+            }
+        }
+
+        private void calculate() {
+            try {
+                String expression = textField.getText();
+                expression = expression.replaceAll("sin", "s");
+                expression = expression.replaceAll("cos", "c");
+                expression = expression.replaceAll("tan", "t");
+                double result = eval(expression);
+                textField.setText(String.valueOf(result));
+            } catch (Exception ex) {
+                textField.setText("Error");
+            }
+        }
+
+        private double eval(String expression) {
+            return new Object() {
+                int pos = -1, ch;
+
+                void nextChar() {
+                    ch = (++pos < expression.length()) ? expression.charAt(pos) : -1;
+                }
+
+                boolean isDigit() {
+                    return Character.isDigit(ch);
+                }
+
+                double parse() {
+                    nextChar();
+                    double x = parseExpression();
+                    if (pos < expression.length()) throw new RuntimeException("Unexpected: " + (char) ch);
+                    return x;
+                }
+
+                double parseExpression() {
+                    double x = parseTerm();
+                    for (; ; ) {
+                        if (eat('+')) x += parseTerm(); // addition
+                        else if (eat('-')) x -= parseTerm(); // subtraction
+                        else return x;
+                    }
+                }
+
+                double parseTerm() {
+                    double x = parseFactor();
+                    for (; ; ) {
+                        if (eat('*')) x *= parseFactor(); // multiplication
+                        else if (eat('/')) x /= parseFactor(); // division
+                        else if (eat('^')) x = Math.pow(x, parseFactor()); // exponentiation
+                        else return x;
+                    }
+                }
+
+                double parseFactor() {
+                    if (eat('+')) return parseFactor(); // unary plus
+                    if (eat('-')) return -parseFactor(); // unary minus
+
+                    double x;
+                    int startPos = this.pos;
+                    if (eat('(')) { // parentheses
+                        x = parseExpression();
+                        eat(')');
+                    } else if (isDigit() || ch == '.') { // numbers
+                        while (isDigit()) nextChar();
+                        x = Double.parseDouble(expression.substring(startPos, this.pos));
+                    } else if (eat('s')) { // sine function
+                        x = Math.sin(parseFactor());
+                    } else if (eat('c')) { // cosine function
+                        x = Math.cos(parseFactor());
+                    } else if (eat('t')) { // tangent function
+                        x = Math.tan(parseFactor());
+                    } else {
+                        throw new RuntimeException("Unexpected: " + (char) ch);
+                    }
+
+                    return x;
+                }
+
+                boolean eat(int charToEat) {
+                    while (Character.isWhitespace(ch)) nextChar();
+                    if (ch == charToEat) {
+                        nextChar();
+                        return true;
+                    }
+                    return false;
+                }
+            }.parse();
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            new CalculatorApp().setVisible(true);
+        });
+    }
+}
